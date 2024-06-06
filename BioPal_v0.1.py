@@ -144,10 +144,10 @@ def main():
 
     buttons = [
         ("Select Input File", input_selector),
-        ("Split FASTA File", split_fasta_file),
-        ("Header Resumer", header_resumer),
-        ("ProtParam Calculator", protparam_calculator),
-        ("Fold Index Calculator", fold_index_calculator),
+        ("Split FASTA File (Nuc/Prot)", split_fasta_file),
+        ("Header Resumer (Nuc/Prot)", header_resumer),
+        ("ProtParam Calculator (Prot)", protparam_calculator),
+        ("Fold Index Calculator (Prot)", fold_index_calculator),
         ("Help", show_help),
         ("Exit", exit_func)
     ]
