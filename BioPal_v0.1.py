@@ -12,7 +12,7 @@ import time
 fasta_file = None
 dir_path = None
 
-Entrez.email = "axeljrizzo@gmail.com" #Esto hay que agregar la opcion de que el usuario haga el input.
+Entrez.email = "" #Esto hay que agregar la opcion de que el usuario haga el input.
 
 def input_selector():
     global fasta_file, dir_path
