@@ -12,7 +12,7 @@ import time
 fasta_file = None
 dir_path = None
 
-Entrez.email = "" #Esto hay que agregar la opcion de que el usuario haga el input.
+Entrez.email = "" #INSTERT YOUR NCBI ACCOUNT MAIL
 
 def input_selector():
     global fasta_file, dir_path
@@ -109,6 +109,10 @@ def protparam_calculator():
             results.write(all)
 
 def getFoldindex(seq):
+    if not fasta_file:
+        messagebox.showwarning("No File Selected", "Please select a FASTA file first using the 'Select Input File' button.")
+        return
+    
     r = requests.get("https://fold.proteopedia.org/cgi-bin/findex?m=json&sq=" + seq)
     data = json.loads(r.text)
     return data["findex"]
