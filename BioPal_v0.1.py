@@ -216,7 +216,7 @@ def exit_func():
 def main():
     global root
     root = tk.Tk()
-    root.title("BioPal v0.1")
+    root.title("BioPal v0.2")
 
     frame = tk.Frame(root)
     frame.pack(padx=10, pady=10)
