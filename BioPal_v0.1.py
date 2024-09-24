@@ -2,13 +2,17 @@ import tkinter as tk
 from tkinter import filedialog as fd, messagebox
 import os
 from Bio import SeqIO
+from Bio import Entrez
 from Bio.SeqUtils import ProtParam
 import csv
 import requests
 import json
+import time
 
 fasta_file = None
 dir_path = None
+
+Entrez.email = "axeljrizzo@gmail.com" #Esto hay que agregar la opcion de que el usuario haga el input.
 
 def input_selector():
     global fasta_file, dir_path
@@ -129,9 +133,81 @@ def show_help():
                                  "3. ProtParam calculator: This function takes the FASTA file and returns several parameters of interest from each sequence, as if bulk querying protparam Expasy tools. The output is a CSV file, which can be easily imported into Excel.\n"
                                  "NOTE: This calculator will not work if your sequences contain non-coding characters in their sequences (e.g., 'X'). Be sure that you have removed or replaced such characters.\n"
                                  "4. FoldIndex calculator: Queries proteopedia's fold tool and retrieves the fold index of the protein sequence.\n"
+                                 "5. TaxaSage: Using the organism name taken from your selected fasta fil e(must include '[organism=' tag), uses NCBIs API Entrez services to gather Order, Class and Family and returns a .csv file for further use."
                                  "\n"
                                  "BioPal v0.1. Build 20240606.\n"
                                  "Disclaimer: This program is provided 'as is' without any guarantees or warranty. In connection with the program, I make no warranties of any kind, either express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, of title, or of noninfringement of third party rights. Use of the program is at your own risk, and I am not responsible for any misuse or the results produced by it. The program is subject to change at any moment without warning, and different versions of the program might produce slightly different results. Some scripts require an active internet connection to function correctly.")
+def get_taxonomic_info(organism):
+    """
+    Retrieves taxonomic information (Division, Order, Class, Family) for the given organism from NCBI Taxonomy.
+    """
+    try:
+        search = Entrez.esearch(db="taxonomy", term=organism)
+        result = Entrez.read(search)
+        if not result["IdList"]:
+            return None
+
+        tax_id = result["IdList"][0]
+        summary = Entrez.efetch(db="taxonomy", id=tax_id, retmode="xml")
+        tax_info = Entrez.read(summary)[0]
+
+        division, order, class_, family = "N/A", "N/A", "N/A", "N/A"
+        for lineage in tax_info.get("LineageEx", []):
+            if lineage["Rank"] == "division":
+                division = lineage["ScientificName"]
+            elif lineage["Rank"] == "order":
+                order = lineage["ScientificName"]
+            elif lineage["Rank"] == "class":
+                class_ = lineage["ScientificName"]
+            elif lineage["Rank"] == "family":
+                family = lineage["ScientificName"]
+
+        return division, order, class_, family
+
+    except Exception as e:
+        return None
+
+
+def phylogenetic_data_retrieval():
+    """
+    Retrieves Division, Order, Class, and Family information for each unique organism in the FASTA file.
+    The output is written to a CSV file in the same directory as the input FASTA file.
+    """
+    if not fasta_file:
+        messagebox.showwarning("No File Selected", "Please select a FASTA file first using the 'Select Input File' button.")
+        return
+
+    organisms = set()  # To avoid duplicates
+    results = []
+
+    try:
+        with open(fasta_file, "r") as infile:
+            sequences = SeqIO.parse(infile, "fasta")
+            for record in sequences:
+                header = record.description
+                if "[organism=" in header:
+                    organism = header.split("[organism=")[1].split("]")[0]
+                    if organism not in organisms:
+                        organisms.add(organism)
+                        tax_info = get_taxonomic_info(organism)
+                        if tax_info:
+                            results.append([organism] + list(tax_info))
+                        else:
+                            results.append([organism, "N/A", "N/A", "N/A", "N/A"])
+                        time.sleep(0.34)  # Throttle API requests to avoid rate-limiting
+
+        # Write results to CSV
+        output_file = os.path.join(dir_path, "phylogenetic_data.csv")
+        with open(output_file, "w", newline="") as outfile:
+            writer = csv.writer(outfile)
+            writer.writerow(["Organism", "Division", "Order", "Class", "Family"])
+            writer.writerows(results)
+
+        messagebox.showinfo("Success", f"Phylogenetic data saved to {output_file}")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred while retrieving phylogenetic data: {str(e)}")
+
 
 def exit_func():
     if messagebox.askyesno("Exit", "Do you want to exit the program?"):
@@ -151,6 +227,7 @@ def main():
         ("Header Resumer (Nuc/Prot)", header_resumer),
         ("ProtParam Calculator (Prot)", protparam_calculator),
         ("Fold Index Calculator (Prot)", fold_index_calculator),
+        ("Taxa Sage (Nuc/prot)", phylogenetic_data_retrieval),
         ("Help", show_help),
         ("Exit", exit_func)
     ]
