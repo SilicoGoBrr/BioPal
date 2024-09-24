@@ -18,6 +18,8 @@ def input_selector():
         fasta_file = file_path
         dir_path = os.path.dirname(file_path)
         messagebox.showinfo("File Selected", f"Selected file: {fasta_file}")
+    root.deiconify()  # Show the root window again after file selection
+
 
 def split_fasta_file():
     if not fasta_file:
@@ -53,7 +55,7 @@ def header_resumer():
 
     for record in sequences:
         full_header = record.description
-        info = full_header.split("[")[1].split("]")[0].split()
+        info = full_header.split("[organism=")[1].split("]")[0].split()
         new_header = info[0][0] + info[1][:5]  # Use at most 5 letters from the second word
         if new_header in new_headers:
             count = new_headers[new_header] + 1
@@ -86,7 +88,7 @@ def protparam_calculator():
 
         for record in SeqIO.parse(handle, "fasta"):
             acc = str(record.id) + ","
-            seq = str(record.seq)
+            seq = str(record.seq.replace("X", ""))
             param = ProtParam.ProteinAnalysis(seq)
             num = str(len(seq)) + ","
             mw = str("%0.5f" % (param.molecular_weight()/1000)) +","
@@ -119,10 +121,11 @@ def fold_index_calculator():
             with open(os.path.join(dir_path, "FoldIndex_Output.csv"), "a") as results:
                 results.write(str(record.id) + "," + str(foldindex) + '\n')
 
+
 def show_help():
     messagebox.showinfo("Help", "This kit includes:\n"
                                  "1. Split FASTA file: This function takes any FASTA file provided and turns it into several files with a limit of 99 sequences in each file. Each file is numbered to keep track.\n"
-                                 "2. Header resumer: This function grabs any FASTA file containing the species between brackets, like NCBI usually allows to download files, (e.g., XP_0000123.1 [Ananas comosus]). The function then takes the first letter of the first word (A) and five from the second word (coreu) to build a new short name (Acoreu). It keeps track of repeated species by adding numbers after the first one (e.g., Acomos, Acomos2, Acomos3, etc.). It also returns a CSV file containing the original headers along with the new ones, so the user can decide to replace them again in the future if they want to.\n"
+                                 "2. Header resumer: This function grabs any FASTA file containing the species between brackets, like NCBI Database usually allows to download files, (e.g., XP_0000123.1 [organism=Ananas comosus]). The function then takes the first letter of the first word (A) and five from the second word (coreu) to build a new short name (Acoreu). It keeps track of repeated species by adding numbers after the first one (e.g., Acomos, Acomos2, Acomos3, etc.). It also returns a CSV file containing the original headers along with the new ones, so the user can decide to replace them again in the future if they want to.\n"
                                  "3. ProtParam calculator: This function takes the FASTA file and returns several parameters of interest from each sequence, as if bulk querying protparam Expasy tools. The output is a CSV file, which can be easily imported into Excel.\n"
                                  "NOTE: This calculator will not work if your sequences contain non-coding characters in their sequences (e.g., 'X'). Be sure that you have removed or replaced such characters.\n"
                                  "4. FoldIndex calculator: Queries proteopedia's fold tool and retrieves the fold index of the protein sequence.\n"
