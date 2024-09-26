@@ -1,6 +1,6 @@
-# BioPal v0.2
+# BioPal
 
-**BioPal v0.2** is a bioinformatics toolkit designed to process FASTA sequence files. The tool provides several functionalities such as splitting FASTA files, calculating protein parameters, querying taxonomic information from NCBI, and much more. It uses the `tkinter` library to provide a user-friendly graphical interface for easy file input and function selection.
+**BioPal (v0.2)** is a bioinformatics toolkit designed to process FASTA sequence files. The tool provides several functionalities such as splitting FASTA files, calculating protein parameters, querying taxonomic information from NCBI, and much more. It uses the `tkinter` library to provide a user-friendly graphical interface for easy file input and function selection.
 
 ## Features
 
@@ -8,7 +8,7 @@
    
 2. **Header Resumer**: Resumes long headers into shorter, standardized ones (e.g., based on the organism name from the NCBI format `[organism=...]`) and outputs a CSV mapping the original and new headers.
 
-3. **ProtParam Calculator**: Performs bulk calculations of various protein properties (e.g., molecular weight, isoelectric point, etc.) similar to ExPASy's ProtParam tool and outputs the results into a CSV file.
+3. **ProtParam Calculator**: Performs bulk calculations of various protein properties (e.g., molecular weight, isoelectric point, etc.) similar to ExPASy's ProtParam tool and outputs the results into a CSV file. Note: This program IGNORES "X" characters in all sequences to perform calculations without errors.
 
 4. **Fold Index Calculator**: Queries the proteopedia fold index tool for each sequence in the FASTA file and outputs the fold index of each sequence to a CSV file.
 
