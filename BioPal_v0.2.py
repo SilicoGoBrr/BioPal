@@ -129,18 +129,6 @@ def fold_index_calculator():
             with open(os.path.join(dir_path, "FoldIndex_Output.csv"), "a") as results:
                 results.write(str(record.id) + "," + str(foldindex) + '\n')
 
-
-def show_help():
-    messagebox.showinfo("Help", "This kit includes:\n"
-                                 "1. Split FASTA file: This function takes any FASTA file provided and turns it into several files with a limit of 99 sequences in each file. Each file is numbered to keep track.\n"
-                                 "2. Header resumer: This function grabs any FASTA file containing the species between brackets, like NCBI Database usually allows to download files, (e.g., XP_0000123.1 [organism=Ananas comosus]). The function then takes the first letter of the first word (A) and five from the second word (coreu) to build a new short name (Acoreu). It keeps track of repeated species by adding numbers after the first one (e.g., Acomos, Acomos2, Acomos3, etc.). It also returns a CSV file containing the original headers along with the new ones, so the user can decide to replace them again in the future if they want to.\n"
-                                 "3. ProtParam calculator: This function takes the FASTA file and returns several parameters of interest from each sequence, as if bulk querying protparam Expasy tools. The output is a CSV file, which can be easily imported into Excel.\n"
-                                 "Note: This program IGNORES "X" characters in all sequences to perform calculations without errors.\n"
-                                 "4. FoldIndex calculator: Queries proteopedia's fold tool and retrieves the fold index of the protein sequence.\n"
-                                 "5. TaxaSage: Using the organism name taken from your selected fasta fil e(must include '[organism=' tag), uses NCBIs API Entrez services to gather Order, Class and Family and returns a .csv file for further use."
-                                 "\n"
-                                 "BioPal v0.1. Build 20240606.\n"
-                                 "Disclaimer: This program is provided 'as is' without any guarantees or warranty. In connection with the program, I make no warranties of any kind, either express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, of title, or of noninfringement of third party rights. Use of the program is at your own risk, and I am not responsible for any misuse or the results produced by it. The program is subject to change at any moment without warning, and different versions of the program might produce slightly different results. Some scripts require an active internet connection to function correctly.")
 def get_taxonomic_info(organism):
     """
     Retrieves taxonomic information (Division, Order, Class, Family) for the given organism from NCBI Taxonomy.
@@ -212,6 +200,17 @@ def phylogenetic_data_retrieval():
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred while retrieving phylogenetic data: {str(e)}")
 
+def show_help():
+    messagebox.showinfo("Help", "This kit includes:\n"
+                                 "1. Split FASTA file: This function takes any FASTA file provided and turns it into several files with a limit of 99 sequences in each file. Each file is numbered to keep track.\n"
+                                 "2. Header resumer: This function grabs any FASTA file containing the species between brackets, like NCBI Database usually allows to download files, (e.g., XP_0000123.1 [organism=Ananas comosus]). The function then takes the first letter of the first word (A) and five from the second word (coreu) to build a new short name (Acoreu). It keeps track of repeated species by adding numbers after the first one (e.g., Acomos, Acomos2, Acomos3, etc.). It also returns a CSV file containing the original headers along with the new ones, so the user can decide to replace them again in the future if they want to.\n"
+                                 "3. ProtParam calculator: This function takes the FASTA file and returns several parameters of interest from each sequence, as if bulk querying protparam Expasy tools. The output is a CSV file, which can be easily imported into Excel.\n"
+                                 "Note: This program IGNORES 'X' characters in all sequences to perform calculations without errors.\n"
+                                 "4. FoldIndex calculator: Queries proteopedia's fold tool and retrieves the fold index of the protein sequence.\n"
+                                 "5. TaxaSage: Using the organism name taken from your selected fasta fil e(must include '[organism=' tag), uses NCBIs API Entrez services to gather Order, Class and Family and returns a .csv file for further use."
+                                 "\n"
+                                 "BioPal v0.2.\n"
+                                 "Disclaimer: This program is provided 'as is' without any guarantees or warranty. In connection with the program, I make no warranties of any kind, either express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, of title, or of noninfringement of third party rights. Use of the program is at your own risk, and I am not responsible for any misuse or the results produced by it. The program is subject to change at any moment without warning, and different versions of the program might produce slightly different results. Some scripts require an active internet connection to function correctly.")
 
 def exit_func():
     if messagebox.askyesno("Exit", "Do you want to exit the program?"):

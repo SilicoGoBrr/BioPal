@@ -16,7 +16,7 @@
 
 6. **Help Menu**: Provides a description of the tool's functionalities.
 
-7. **Exit**: Safely closes the application.
+7. **Exit**: Safely closes the application. Program does not hold path/file information.
 
 ## Requirements
 
