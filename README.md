@@ -4,11 +4,11 @@
 
 ## Features
 
-1. **Split FASTA File**: Splits a FASTA file into multiple smaller files with a maximum of 99 sequences per file.
+1. **Split FASTA File**: Splits a FASTA file into multiple smaller files with a maximum of 99 sequences per file. Sometimes required for post prrocessing.
    
-2. **Header Resumer**: Resumes long headers into shorter, standardized ones (e.g., based on the organism name from the NCBI format `[organism=...]`) and outputs a CSV mapping the original and new headers.
+2. **Header Resumer**: Resumes long headers into shorter, standardized ones (e.g., based on the organism name from the NCBI format `[organism=...]`) and outputs a CSV mapping the original and new headers. It provides both a new FASTA file with the new short headers and the sequences, and a CSV file with both the "old" and "new/short" header names for adequate tracking of sequences.
 
-3. **ProtParam Calculator**: Performs bulk calculations of various protein properties (e.g., molecular weight, isoelectric point, etc.) similar to ExPASy's ProtParam tool and outputs the results into a CSV file. Note: This program IGNORES "X" characters in all sequences to perform calculations without errors.
+3. **ProtParam Calculator**: Performs bulk calculations of various protein properties (e.g., molecular weight, isoelectric point, etc.) similar to ExPASy's ProtParam tool and outputs the results into a CSV file. Note: This program IGNORES "X" characters in all sequences to perform calculations without errors. Returns a CSV file with the results. So far, this feature is still hard-coded, and the user can't change the output of the program.
 
 4. **Fold Index Calculator**: Queries the proteopedia fold index tool for each sequence in the FASTA file and outputs the fold index of each sequence to a CSV file.
 

@@ -12,7 +12,7 @@ import time
 fasta_file = None
 dir_path = None
 
-Entrez.email = "" #INSTERT YOUR NCBI ACCOUNT MAIL
+Entrez.email = "" #INSTERT YOUR NCBI ACCOUNT MAIL (only neccessary for TaxaSage script)
 
 def input_selector():
     global fasta_file, dir_path
