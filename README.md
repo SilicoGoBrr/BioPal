@@ -65,6 +65,7 @@ python biopal.py
    - Calculate protein parameters.
    - Calculate fold index.
    - Retrieve taxonomic information (Taxa Sage).
+   - Retrieve microsintenic information.
 
 3. The results will be saved in the same directory as the input file, with appropriate file names based on the operation performed.
 
