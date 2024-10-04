@@ -1,6 +1,6 @@
 # BioPal
 
-**BioPal (v0.2)** is a bioinformatics toolkit designed to process FASTA sequence files. The tool provides several functionalities such as splitting FASTA files, calculating protein parameters, querying taxonomic information from NCBI, and much more. It uses the `tkinter` library to provide a user-friendly graphical interface for easy file input and function selection.
+**BioPal (v0.3)** is a bioinformatics toolkit designed to process FASTA sequence files. The tool provides several functionalities such as splitting FASTA files, calculating protein parameters, querying taxonomic information from NCBI, and much more. It uses the `tkinter` library to provide a user-friendly graphical interface for easy file input and function selection.
 
 ## Features
 
@@ -14,9 +14,11 @@
 
 5. **Taxa Sage**: Queries taxonomic information (Division, Order, Class, Family) for organisms in the FASTA file (requires the presence of `[organism=...]` in the header) and writes the results to a CSV file.
 
-6. **Help Menu**: Provides a description of the tool's functionalities.
+6. **Microsintenic retriever**: Starting from a fasta file conatining genes downloaded from NCBI's dataset collections, it parses data and finds gff3 data of the 20 kbp surrounding the genes of interest. Depicts the data in a readable csv file, great for evolutionary analysis.
 
-7. **Exit**: Safely closes the application. Program does not hold path/file information.
+7. **Help Menu**: Provides a description of the tool's functionalities.
+
+8. **Exit**: Safely closes the application. Program does not hold path/file information.
 
 ## Requirements
 
