@@ -9,11 +9,13 @@ import requests
 import json
 import time
 
+# Path reset
 fasta_file = None
 dir_path = None
 
 Entrez.email = "" #INSTERT YOUR NCBI ACCOUNT MAIL (only neccessary for TaxaSage script)
 
+# Function for main input file selection (fasta, fa, faa, txt in fasta format)
 def input_selector():
     global fasta_file, dir_path
     root.withdraw()  # Hide the root window while selecting file
@@ -23,7 +25,6 @@ def input_selector():
         dir_path = os.path.dirname(file_path)
         messagebox.showinfo("File Selected", f"Selected file: {fasta_file}")
     root.deiconify()  # Show the root window again after file selection
-
 
 def split_fasta_file():
     if not fasta_file:
@@ -47,30 +48,35 @@ def split_fasta_file():
             with open(output_file, 'a') as out_f:
                 out_f.write(line)
 
+# Function for header shortening.
 def header_resumer():
     if not fasta_file:
         messagebox.showwarning("No File Selected", "Please select a FASTA file first using the 'Select Input File' button.")
         return
-
+    # Set the FASTA file for parsing via SeqIO.
     sequences = SeqIO.parse(fasta_file, "fasta")
     new_headers = {}
     new_sequences = []
     header_map = []
-
+    # For every sequence found in the file
     for record in sequences:
+        #Store the header, find the "organism" tag, and extract the full extent of the species name.
         full_header = record.description
         info = full_header.split("[organism=")[1].split("]")[0].split()
+        #Build a new resumed header using the first letter of the genus name and the first letters of the spp name.
         new_header = info[0][0] + info[1][:5]  # Use at most 5 letters from the second word
+        #Check if such resumed header has been built before, and in that case add a number to the end to avoid recursive names. Otherwise leave it as is.
         if new_header in new_headers:
             count = new_headers[new_header] + 1
             new_headers[new_header] = count
             new_header += str(count + 1)  # Append count + 1 to skip "1"
         else:
             new_headers[new_header] = 0
+        #Append the results to both the new resumed FASTA and the HEADER map csv file.
         new_record = SeqIO.SeqRecord(record.seq, id=new_header, description="")
         new_sequences.append(new_record)
         header_map.append((full_header, new_header))
-
+    #Save the files in the FASTA file origin folder/path
     with open(os.path.join(dir_path, "header_data.csv"), "w", newline='') as f:
         writer = csv.writer(f)
         writer.writerow(["Full header", "Resumed header"])
@@ -80,21 +86,24 @@ def header_resumer():
     with open(os.path.join(dir_path, "FASTA_con_headers_cortos.fasta"), "w") as handle:
         SeqIO.write(new_sequences, handle, "fasta")
 
+# Function for protein parameter calculation
 def protparam_calculator():
     if not fasta_file:
         messagebox.showwarning("No File Selected", "Please select a FASTA file first using the 'Select Input File' button.")
         return
-
+    #Define output file
     with open(os.path.join(dir_path, "Propatam_Output.csv"), "w") as results:
         handle = open(fasta_file, "r")
+        #Predefined (hard-coded) output header, If any modifications are wanted, you can find out how to add it in the Bio package (SeqUtils Protparam)
         header = "Accession, Aa Num, MW (kDa), IP, GRAVY index, Pro, Asp, Lys, Asn, Glu, Arg, Sequence \n"
         results.write(header)
-
+        #Analyze and store results
         for record in SeqIO.parse(handle, "fasta"):
             acc = str(record.id) + ","
             seq = str(record.seq.replace("X", ""))
             param = ProtParam.ProteinAnalysis(seq)
             num = str(len(seq)) + ","
+            #Express MW as kDa
             mw = str("%0.5f" % (param.molecular_weight()/1000)) +","
             ip = str(param.isoelectric_point()) +","
             gravy = str(param.gravy()) +","
@@ -108,6 +117,7 @@ def protparam_calculator():
             all = acc + num + mw + ip + gravy + pro + asp + lys + asn + glu + arg + seqt
             results.write(all)
 
+# Fold index calculator function. It uses INTERNET, as it makes requests.get calls from proteopedia's url. It's been deprecated by its non-online successor, but remains in code for reference and alternative use.
 def getFoldindex(seq):
     if not fasta_file:
         messagebox.showwarning("No File Selected", "Please select a FASTA file first using the 'Select Input File' button.")
@@ -116,7 +126,7 @@ def getFoldindex(seq):
     r = requests.get("https://fold.proteopedia.org/cgi-bin/findex?m=json&sq=" + seq)
     data = json.loads(r.text)
     return data["findex"]
-
+# Successor to fold_index calculator function getFoldindex. Offline calculator.
 def fold_index_calculator():
     if not fasta_file:
         messagebox.showwarning("No File Selected", "Please select a FASTA file first using the 'Select Input File' button.")
@@ -129,41 +139,10 @@ def fold_index_calculator():
             with open(os.path.join(dir_path, "FoldIndex_Output.csv"), "a") as results:
                 results.write(str(record.id) + "," + str(foldindex) + '\n')
 
-def get_taxonomic_info(organism):
-    """
-    Retrieves taxonomic information (Division, Order, Class, Family) for the given organism from NCBI Taxonomy.
-    """
-    try:
-        search = Entrez.esearch(db="taxonomy", term=organism)
-        result = Entrez.read(search)
-        if not result["IdList"]:
-            return None
-
-        tax_id = result["IdList"][0]
-        summary = Entrez.efetch(db="taxonomy", id=tax_id, retmode="xml")
-        tax_info = Entrez.read(summary)[0]
-
-        division, order, class_, family = "N/A", "N/A", "N/A", "N/A"
-        for lineage in tax_info.get("LineageEx", []):
-            if lineage["Rank"] == "division":
-                division = lineage["ScientificName"]
-            elif lineage["Rank"] == "order":
-                order = lineage["ScientificName"]
-            elif lineage["Rank"] == "class":
-                class_ = lineage["ScientificName"]
-            elif lineage["Rank"] == "family":
-                family = lineage["ScientificName"]
-
-        return division, order, class_, family
-
-    except Exception as e:
-        return None
-
+# This function requires internet as it fetches data from ENTREZ servers.
 def phylogenetic_data_retrieval():
-    """
-    Retrieves Division, Order, Class, and Family information for each unique organism in the FASTA file.
-    The output is written to a CSV file in the same directory as the input FASTA file.
-    """
+#  Retrieves Division, Order, Class, and Family information for each unique organism in the FASTA file.
+#    The output is written to a CSV file in the same directory as the input FASTA file.
     if not fasta_file:
         messagebox.showwarning("No File Selected", "Please select a FASTA file first using the 'Select Input File' button.")
         return
@@ -199,6 +178,7 @@ def phylogenetic_data_retrieval():
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred while retrieving phylogenetic data: {str(e)}")
 
+#Function fo fetch gff3 info from NCBI servers. Requires the input to include position in the header (this is available in Datasets NCBI)
 def fetch_gff3(accession, start, stop, retries=3, timeout=30):
     base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
     params = {
@@ -225,7 +205,7 @@ def fetch_gff3(accession, start, stop, retries=3, timeout=30):
             break
     failed_accessions.append(accession)
     return None
-
+# Parsing the gff3 information
 def parse_gff3(gff3_data, organism, accession):
     genes = []
     current_gene = {
