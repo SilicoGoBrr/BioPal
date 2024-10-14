@@ -19,7 +19,7 @@ Entrez.email = "" #INSTERT YOUR NCBI ACCOUNT MAIL (only neccessary for TaxaSage 
 def input_selector():
     global fasta_file, dir_path
     root.withdraw()  # Hide the root window while selecting file
-    file_path = fd.askopenfilename(filetypes=[("FASTA files", "*.fasta *.fa")])
+    file_path = fd.askopenfilename(filetypes=[("FASTA files", "*.fasta *.fa"), ("Text files", "*.txt"), ("All files", "*.*")])
     if file_path:
         fasta_file = file_path
         dir_path = os.path.dirname(file_path)
@@ -170,13 +170,41 @@ def phylogenetic_data_retrieval():
         output_file = os.path.join(dir_path, "phylogenetic_data.csv")
         with open(output_file, "w", newline="") as outfile:
             writer = csv.writer(outfile)
-            writer.writerow(["Organism", "Division", "Order", "Class", "Family"])
+            writer.writerow(["Organism", "Class", "Order", "Family"])
             writer.writerows(results)
 
         messagebox.showinfo("Success", f"Phylogenetic data saved to {output_file}")
 
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred while retrieving phylogenetic data: {str(e)}")
+
+def get_taxonomic_info(organism):
+    """
+    Retrieves taxonomic information (Class, Order, Family) for the given organism from NCBI Taxonomy.
+    """
+    try:
+        search = Entrez.esearch(db="taxonomy", term=organism)
+        result = Entrez.read(search)
+        if not result["IdList"]:
+            return None
+
+        tax_id = result["IdList"][0]
+        summary = Entrez.efetch(db="taxonomy", id=tax_id, retmode="xml")
+        tax_info = Entrez.read(summary)[0]
+
+        order, class_, family = "N/A", "N/A", "N/A"
+        for lineage in tax_info.get("LineageEx", []):
+            if lineage["Rank"] == "class":
+                order = lineage["ScientificName"]
+            elif lineage["Rank"] == "order":
+                class_ = lineage["ScientificName"]
+            elif lineage["Rank"] == "family":
+                family = lineage["ScientificName"]
+
+        return order, class_, family
+
+    except Exception as e:
+        return None
 
 #Function fo fetch gff3 info from NCBI servers. Requires the input to include position in the header (this is available in Datasets NCBI)
 def fetch_gff3(accession, start, stop, retries=3, timeout=30):
