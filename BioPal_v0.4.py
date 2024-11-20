@@ -233,72 +233,12 @@ def fetch_gff3(accession, start, stop, retries=3, timeout=30):
             break
     failed_accessions.append(accession)
     return None
-# Parsing the gff3 information
-def parse_gff3(gff3_data, organism, accession):
-    genes = []
-    current_gene = {
-        'Species': organism,
-        'GeneID': None,
-        'Accession': None,
-        'Description': None
-    }
-    capture_mrna = False
-
-    for line in gff3_data.splitlines():
-        if line.startswith("     gene"):
-            # New gene section, reset current_gene
-            current_gene = {
-                'Species': organism,
-                'Accession': None, # Reset Accession to None
-                'GeneID': None,  # Reset GeneID to None
-                'Description': None  # Reset Description to None
-            }
-            capture_mrna = False  # Reset capture flag for mRNA
-
-        elif line.startswith("     mRNA"):
-            # mRNA section - prepare to capture
-            capture_mrna = True
-
-        elif capture_mrna:
-            # Look for the geneID and transcript_id lines within mRNA section
-            if "/transcript_id=" in line:
-                try:
-                    transcript_id = line.split("/transcript_id=")[1].strip().strip('"')
-                    print(transcript_id)
-                    current_gene['Accession'] = transcript_id
-                except IndexError:
-                    current_gene['Accession'] = None  # If transcript_id is not found, set to None
-            elif "/db_xref=" in line:
-                try:
-                    geneID = line.split('/db_xref="GeneID:')[1].strip().strip('"')
-                    print(geneID)
-                    current_gene['GeneID'] = geneID
-                except IndexError:
-                    current_gene['GeneID'] = None  # If GeneID is not found, set to None
-            elif "/product=" in line:
-                try:
-                    description = line.split('/product="')[1].strip().strip('"')
-                    current_gene['Description'] = description
-                    print(description)
-                except IndexError:
-                    current_gene['Description'] = None  # If product description is not found, set to None
-
-            # Once all fields (GeneID, Accession, Description) are captured, add the gene to the list
-            if current_gene['GeneID']:
-                genes.append(current_gene.copy())
-                # Reset current_gene for the next gene
-                current_gene = {
-                    'Species': organism,
-                    'Accession': None,
-                    'GeneID': None,
-                    'Description': None
-                }
-                capture_mrna = False  # Done capturing this mRNA section
-
-    return genes
 
 def parse_fasta_and_download_gff(fasta_file, output_csv):
     last_species = None
+    seen_genes = set()  # Set to track unique genes
+    query_gene_info = None
+
     with open(output_csv, mode='w', newline='') as csv_file:
         fieldnames = ['Species', 'Accession', 'Description', 'GeneID']
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -327,10 +267,10 @@ def parse_fasta_and_download_gff(fasta_file, output_csv):
                 writer.writerow({})
 
             # Calculate upstream and downstream regions
-            upstream_start = max(start - 20000, 0) # Change the 20000 integer to whatever number of bases upstream you want to analyze
+            upstream_start = max(start - 30000, 0)  # Default 30000 upstream
             upstream_stop = start
-            downstream_start = stop
-            downstream_stop = stop + 20000 # Change the integer to whatever number of bases downstream you want to analyze
+            downstream_start = stop + 1
+            downstream_stop = stop + 30000  # Default 30000 downstream
 
             # Fetch upstream GFF3 data
             gff3_data_upstream = fetch_gff3(accession, upstream_start, upstream_stop)
@@ -338,35 +278,144 @@ def parse_fasta_and_download_gff(fasta_file, output_csv):
                 upstream_genes = parse_gff3(gff3_data_upstream, organism, accession)
                 if upstream_genes:
                     for gene in upstream_genes:
-                        writer.writerow(gene)
+                        gene_tuple = (gene['Accession'], gene['Description'], gene['GeneID'])
+                        if gene_tuple not in seen_genes:
+                            writer.writerow(gene)
+                            seen_genes.add(gene_tuple)
                 else:
                     writer.writerow({'Species': organism, 'Accession': '', 'Description': 'No upstream genes found'})
             else:
                 writer.writerow({'Species': organism, 'Accession': '', 'Description': 'No upstream GFF3 data retrieved'})
 
-            # Write the query gene information after upstream genes
-            query_gene = {
-                'Species': organism,
-                'Accession': accession,
-                'Description': "Query Gene",
-                'GeneID': '',  # Leave empty
-            }
-            writer.writerow(query_gene)
-
             # Fetch downstream GFF3 data
             gff3_data_downstream = fetch_gff3(accession, downstream_start, downstream_stop)
             if gff3_data_downstream:
                 downstream_genes = parse_gff3(gff3_data_downstream, organism, accession)
+
                 if downstream_genes:
-                    for gene in downstream_genes:
-                        writer.writerow(gene)
+                    # Store the query gene information and write it once
+                    query_gene_info = downstream_genes[0]
+                    query_gene_tuple = (query_gene_info['Accession'], query_gene_info['Description'], query_gene_info['GeneID'])
+
+                    if query_gene_tuple not in seen_genes:
+                        writer.writerow(query_gene_info)
+                        seen_genes.add(query_gene_tuple)
+
+                    # Skip the first downstream gene (query gene) and write the rest
+                    for gene in downstream_genes[1:]:
+                        gene_tuple = (gene['Accession'], gene['Description'], gene['GeneID'])
+                        if gene_tuple not in seen_genes:
+                            writer.writerow(gene)
+                            seen_genes.add(gene_tuple)
+
+                    # If the combined gene list is less than or equal to 6 genes, extend the search region
+                    if len(upstream_genes) + len(downstream_genes) <= 6:
+                        print(f"Few genes found, expanding search for {accession}...")
+                        upstream_start = max(start - 40000, 0)  # Expand upstream by an additional 10000 bases
+                        downstream_stop = stop + 40000  # Expand downstream by 10000 bases
+                        
+                        # Fetch extended upstream GFF3 data
+                        gff3_data_upstream = fetch_gff3(accession, upstream_start, upstream_stop)
+                        if gff3_data_upstream:
+                            upstream_genes = parse_gff3(gff3_data_upstream, organism, accession)
+                            if upstream_genes:
+                                for gene in upstream_genes:
+                                    gene_tuple = (gene['Accession'], gene['Description'], gene['GeneID'])
+                                    if gene_tuple not in seen_genes:
+                                        writer.writerow(gene)
+                                        seen_genes.add(gene_tuple)
+                        
+                        # Fetch extended downstream GFF3 data
+                        gff3_data_downstream = fetch_gff3(accession, downstream_start, downstream_stop)
+                        if gff3_data_downstream:
+                            downstream_genes = parse_gff3(gff3_data_downstream, organism, accession)
+                            if downstream_genes:
+                                for gene in downstream_genes[1:]:  # Skip the first gene again in the extended query
+                                    gene_tuple = (gene['Accession'], gene['Description'], gene['GeneID'])
+                                    if gene_tuple not in seen_genes:
+                                        writer.writerow(gene)
+                                        seen_genes.add(gene_tuple)
                 else:
                     writer.writerow({'Species': organism, 'Accession': '', 'Description': 'No downstream genes found'})
             else:
                 writer.writerow({'Species': organism, 'Accession': '', 'Description': 'No downstream GFF3 data retrieved'})
 
             last_species = organism
-            writer.writerow({})
+
+# Parsing the gff3 information 
+def parse_gff3(gff3_data, organism, accession):
+    genes = []
+    current_gene = {
+        'Species': organism,
+        'GeneID': None,
+        'Accession': None,
+        'Description': None,
+        'Start': None,
+        'Stop': None
+    }
+    capture_mrna = False
+
+    for line in gff3_data.splitlines():
+        if line.startswith("     gene"):
+            # New gene section, reset current_gene
+            current_gene = {
+                'Species': organism,
+                'Accession': None,  # Reset Accession to None
+                'GeneID': None,  # Reset GeneID to None
+                'Description': None,  # Reset Description to None
+                'Start': None,  # Reset Start
+                'Stop': None  # Reset Stop
+            }
+            capture_mrna = False  # Reset capture flag for mRNA
+
+        elif line.startswith("     mRNA"):
+            # mRNA section - prepare to capture
+            capture_mrna = True
+
+        elif capture_mrna:
+            # Look for the geneID and transcript_id lines within mRNA section
+            if "/transcript_id=" in line:
+                try:
+                    transcript_id = line.split("/transcript_id=")[1].strip().strip('"')
+                    current_gene['Accession'] = transcript_id
+                except IndexError:
+                    current_gene['Accession'] = None  # If transcript_id is not found, set to None
+            elif "/db_xref=" in line:
+                try:
+                    geneID = line.split('/db_xref="GeneID:')[1].strip().strip('"')
+                    current_gene['GeneID'] = geneID
+                except IndexError:
+                    current_gene['GeneID'] = None  # If GeneID is not found, set to None
+            elif "/product=" in line:
+                try:
+                    description = line.split('/product="')[1].strip().strip('"')
+                    current_gene['Description'] = description
+                except IndexError:
+                    current_gene['Description'] = None  # If product description is not found, set to None
+            elif "/location=" in line:
+                try:
+                    start_stop = line.split('/location="')[1].strip().strip('"').split("..")
+                    current_gene['Start'], current_gene['Stop'] = int(start_stop[0]), int(start_stop[1])
+                except (IndexError, ValueError):
+                    current_gene['Start'], current_gene['Stop'] = None, None  # If location is not found or not valid, set to None
+
+            # Once all fields (GeneID, Accession, Description, Start, Stop) are captured, add the gene to the list
+            if current_gene['GeneID']:
+                genes.append(current_gene.copy())
+                # Reset current_gene for the next gene
+                current_gene = {
+                    'Species': organism,
+                    'Accession': None,
+                    'GeneID': None,
+                    'Description': None,
+                    'Start': None,
+                    'Stop': None
+                }
+                capture_mrna = False  # Done capturing this mRNA section
+
+    # Sort the genes by the Start position before returning
+    genes = sorted(genes, key=lambda gene: gene['Start'] if gene['Start'] is not None else float('inf'))
+    return genes
 
 def select_fasta_file():
     root = tk.Tk()
@@ -402,7 +451,7 @@ def show_help():
                                  "Note: This program IGNORES 'X' characters in all sequences to perform calculations without errors.\n"
                                  "4. FoldIndex calculator: Queries proteopedia's fold tool and retrieves the fold index of the protein sequence.\n"
                                  "5. TaxaSage: Using the organism name taken from your selected fasta file (must include '[organism=' tag), uses NCBIs API Entrez services to gather Order, Class and Family and returns a .csv file for further use. \n"
-                                 "6. Microsintenic retriever: Selecting a NCBI Database gene fasta file, it parses the data, collects gff3 data from NCBI servers and presents all coding genes surrounding the gene of interest both upstream and downstream in a readable CSV for the user. The distance is set to 20 kbp upstream from the gene start position, adn downstream from the end position."
+                                 "6. Microsintenic retriever: Selecting a NCBI Database gene fasta file, it parses the data, collects gff3 data from NCBI servers and presents all coding genes surrounding the gene of interest both upstream and downstream in a readable CSV for the user. The distance is set to 30 kbp upstream from the gene start position, and downstream from the end position. If few genes are detected, program automatically extends this by 10 kbps."
                                  "\n"
                                  "BioPal v0.3.\n"
                                  "Disclaimer: This program is provided 'as is' without any guarantees or warranty. In connection with the program, I make no warranties of any kind, either express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, of title, or of noninfringement of third party rights. Use of the program is at your own risk, and I am not responsible for any misuse or the results produced by it. The program is subject to change at any moment without warning, and different versions of the program might produce slightly different results. Some scripts require an active internet connection to function correctly.")
@@ -426,7 +475,7 @@ def main():
         ("ProtParam Calculator (Prot)", protparam_calculator),
         ("Fold Index Calculator (Prot)", fold_index_calculator),
         ("Taxa Sage (Nuc/prot)", phylogenetic_data_retrieval),
-        ("Microsintenic retriever (Nuc)", microsintenic_analyzer),
+        ("Microsyntenic retriever (Nuc)", microsintenic_analyzer),
         ("Help", show_help),
         ("Exit", exit_func)
     ]
