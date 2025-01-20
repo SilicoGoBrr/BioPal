@@ -217,7 +217,7 @@ def fetch_gff3(accession, start, stop, retries=3, timeout=30):
         "rettype": "gff",
         "retmode": "text"
     }
-
+    failed_accessions = []
     for attempt in range(retries):
         try:
             response = requests.get(base_url, params=params, timeout=timeout)
@@ -240,7 +240,7 @@ def parse_fasta_and_download_gff(fasta_file, output_csv):
     query_gene_info = None
 
     with open(output_csv, mode='w', newline='') as csv_file:
-        fieldnames = ['Species', 'Accession', 'Description', 'GeneID']
+        fieldnames = ['Species', 'Accession', 'Description', 'GeneID', 'Start', 'Stop']
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
 
