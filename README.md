@@ -1,6 +1,6 @@
 # BioPal
 
-**BioPal (v0.3)** is a bioinformatics toolkit designed to process FASTA sequence files. The tool provides several functionalities such as splitting FASTA files, calculating protein parameters, querying taxonomic information from NCBI, and much more. It uses the `tkinter` library to provide a user-friendly graphical interface for easy file input and function selection.
+**BioPal (v0.4)** is a bioinformatics toolkit designed to process FASTA sequence files. The tool provides several functionalities such as splitting FASTA files, calculating protein parameters, querying taxonomic information from NCBI, and much more. It uses the `tkinter` library to provide a user-friendly graphical interface for easy file input and function selection.
 
 ## Features
 
