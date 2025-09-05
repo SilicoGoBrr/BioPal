@@ -1,10 +1,18 @@
 # BioPal
 
-**BioPal (v0.4)** is a bioinformatics toolkit designed to process FASTA sequence files. The tool provides several functionalities such as splitting FASTA files, calculating protein parameters, querying taxonomic information from NCBI, and much more. It uses the `tkinter` library to provide a user-friendly graphical interface for easy file input and function selection.
+**BioPal (v0.5)** is a bioinformatics toolkit designed to process FASTA sequence files. It allows for basic molecular characterization and to obtain basic evolutive information about sequences of interest (e.g. microsintenic information and comparative analysis). The tool provides several functionalities such as splitting FASTA files, calculating protein parameters, querying taxonomic information from NCBI, and much more. It uses the `tkinter` library to provide a user-friendly graphical interface for easy file input and function selection.
+
+##BASIC USE
+   **The user must select an input FASTA file using the `Select input file` button. It will open an explorer window which you can use to navigate to the folder that contains your file.
+
+   If you don't see you file be mindful that the program is looking for `.fasta` files, but you can change that in the bottom right of the explorer window, in case you are working with `.fa` files or other formats. The onlyrequisite to keep working is that there are HEADERS and SEQUENCES and that the HEADER of all sequences contain the `[organism=]` tag (otherwise, programs as `Header resumer` wont work properly).
+
+   If you indeed use the Header resumer program, you MUST select your `short headed` sequence file for the following programs to use the short headers.**
+
 
 ## Features
 
-1. **Split FASTA File**: Splits a FASTA file into multiple smaller files with a maximum of 99 sequences per file. Sometimes required for post prrocessing.
+1. **Split FASTA File**: Splits a FASTA file into multiple smaller files with a maximum of 100 sequences per file. Sometimes required for post prrocessing.
    
 2. **Header Resumer**: Resumes long headers into shorter, standardized ones (e.g., based on the organism name from the NCBI format `[organism=...]`) and outputs a CSV mapping the original and new headers. It provides both a new FASTA file with the new short headers and the sequences, and a CSV file with both the "old" and "new/short" header names for adequate tracking of sequences.
 
@@ -91,8 +99,8 @@ This step is necessary for the Entrez API requests to work properly.
 
 - **Rate-Limiting**: The NCBI Entrez API may impose rate limits. To avoid being rate-limited, the tool introduces a short delay between API requests when using the Taxa Sage feature.
 
-- **FASTA Format Requirements**: The input FASTA file must contain `[organism=...]` tags for the Taxa Sage function to work correctly.
+- **FASTA Format Requirements**: The input FASTA file must contain `[organism=...]` tags for the Taxa Sage function to work correctly. This is not an important issue, given that usually NCBI will provide the headers formated with this information.
 
 ## Disclaimer
 
-This program is provided "as is" without any warranties or guarantees. Use it at your own risk. Some features may require an active internet connection.
+This program is provided "as is" without any warranties or guarantees. Use it at your own risk. Some features require an active internet connection.

@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog as fd, messagebox
+import pandas as pd
 import os
 from Bio import SeqIO
 from Bio import Entrez
@@ -8,6 +9,7 @@ import csv
 import requests
 import json
 import time
+import matplotlib.pyplot as plt
 
 # Path reset
 fasta_file = None
@@ -95,7 +97,7 @@ def protparam_calculator():
     with open(os.path.join(dir_path, "Propatam_Output.csv"), "w") as results:
         handle = open(fasta_file, "r")
         #Predefined (hard-coded) output header, If any modifications are wanted, you can find out how to add it in the Bio package (SeqUtils Protparam)
-        header = "Accession, Aa Num, MW (kDa), IP, GRAVY index, Pro, Asp, Lys, Asn, Glu, Arg, Sequence \n"
+        header = "Accession, Aa Num, MW (kDa), IP, GRAVY index, Ala, Arg, Asn, Asp, Cys, Gln, Glu, Gly, His, Ile, Leu, Lys, Met, Phe, Pro, Ser, Thr, Trp, Tyr, Val, Sequence \n"
         results.write(header)
         #Analyze and store results
         for record in SeqIO.parse(handle, "fasta"):
@@ -107,14 +109,28 @@ def protparam_calculator():
             mw = str("%0.5f" % (param.molecular_weight()/1000)) +","
             ip = str(param.isoelectric_point()) +","
             gravy = str(param.gravy()) +","
-            pro = str(param.count_amino_acids()['P']) + ","
-            asp = str(param.count_amino_acids()['D']) + ","
-            lys = str(param.count_amino_acids()['K']) + ","
-            asn = str(param.count_amino_acids()['N']) + ","
-            glu = str(param.count_amino_acids()['E']) + ","
+            ala = str(param.count_amino_acids()['A']) + ","
             arg = str(param.count_amino_acids()['R']) + ","
+            asn = str(param.count_amino_acids()['N']) + ","
+            asp = str(param.count_amino_acids()['D']) + ","
+            cys = str(param.count_amino_acids()['C']) + ","
+            gln = str(param.count_amino_acids()['Q']) + ","
+            glu = str(param.count_amino_acids()['E']) + ","
+            gly = str(param.count_amino_acids()['G']) + ","
+            his = str(param.count_amino_acids()['H']) + ","
+            ile = str(param.count_amino_acids()['I']) + ","
+            leu = str(param.count_amino_acids()['L']) + ","
+            lys = str(param.count_amino_acids()['K']) + ","
+            met = str(param.count_amino_acids()['M']) + ","
+            phe = str(param.count_amino_acids()['F']) + ","
+            pro = str(param.count_amino_acids()['P']) + ","
+            ser = str(param.count_amino_acids()['S']) + ","
+            thr = str(param.count_amino_acids()['T']) + ","
+            trp = str(param.count_amino_acids()['W']) + ","
+            tyr = str(param.count_amino_acids()['Y']) + ","
+            val = str(param.count_amino_acids()['V']) + ","
             seqt = seq + "\n"
-            all = acc + num + mw + ip + gravy + pro + asp + lys + asn + glu + arg + seqt
+            all = acc + num + mw + ip + gravy + ala + arg + asn + asp + cys + gln + glu + gly + his + ile + leu + lys + met + phe + pro + ser + thr + trp + tyr + val + seqt
             results.write(all)
 
 # Fold index calculator function. It uses INTERNET, as it makes requests.get calls from proteopedia's url. It's been deprecated by its non-online successor, but remains in code for reference and alternative use.
@@ -443,17 +459,247 @@ def microsintenic_analyzer():
 
     print("Processing complete.")
 
+def identify_blocks(df):
+    """
+    Identifies blocks of data in the DataFrame based on consecutive non-empty rows.
+    """
+    blocks = []
+    current_block = []
+    
+    for _, row in df.iterrows():
+        if not row.isnull().all():  # Check if the row is not entirely empty
+            current_block.append(row)
+        else:
+            if current_block:
+                blocks.append(pd.DataFrame(current_block))
+                current_block = []
+    
+    if current_block:
+        blocks.append(pd.DataFrame(current_block))
+    
+    return blocks
+
+def compare_blocks(blocks, min_similar_genes, warning_file):
+    """
+    Compares gene blocks and groups similar ones, generating a warning for lower than required matches.
+    """
+    groups = []
+    assigned = set()
+    warnings = []  # Lista para almacenar las advertencias
+    
+    for i, block1 in enumerate(blocks):
+        if i in assigned:
+            continue
+        
+        current_group = [block1.copy()]
+        assigned.add(i)
+        matches = {}  # Diccionario para almacenar especies coincidentes por fila
+        
+        for j, block2 in enumerate(blocks):
+            if i == j or j in assigned:
+                continue
+            
+            common_descriptions = set(block1['Description'].unique()) & set(block2['Description'].unique())
+            num_common = len(common_descriptions)
+            
+            # Si la cantidad de coincidencias supera el umbral mínimo, se agrupan los bloques
+            if num_common >= min_similar_genes:
+                current_group.append(block2.copy())
+                assigned.add(j)
+                species_name = block2.iloc[0, 0]  # Obtener el nombre de la especie del bloque 2
+                
+                for index, row in block1.iterrows():
+                    if row['Description'] in common_descriptions:
+                        if index not in matches:
+                            matches[index] = set()
+                        matches[index].add(species_name)
+            # Si las coincidencias son menores que el mínimo, se genera una advertencia
+            elif num_common > 0:
+                warnings.append([
+                    f"Bloque {i+1}",
+                    block1.iloc[0, 0],  # Especie del bloque 1
+                    num_common,
+                    ", ".join(common_descriptions),
+                    block2.iloc[0, 0]  # Especie del bloque 2
+                ])
+        
+        if len(current_group) > 1:  # Solo si el grupo tiene más de un bloque
+            for index, species_set in matches.items():
+                if 'Matching Species' not in block1.columns:
+                    block1['Matching Species'] = None  # Inicializar columna si no existe
+                block1.at[index, 'Matching Species'] = ', '.join(species_set)
+            groups.append(current_group)
+    
+    # Escribir el archivo de advertencias si se encontraron coincidencias menores
+    if warnings:
+        with open(warning_file, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([
+                "Las siguientes especies mostraron coincidencias en menor número al indicado por el usuario:"
+            ])
+            writer.writerow(["Bloque", "Especie del bloque", "Número de coincidencias", "Descripción(s) que coinciden", "Especie del bloque con coincidencia"])
+            for warning in warnings:
+                writer.writerow(warning)
+    
+    return groups
+
+def create_output_files(groups, file_format, output_dir):
+    """
+    Creates output files for each group in the selected format (CSV or XLSX), adding a counter for the number of blocks.
+    """
+    file_count = 0
+    
+    for idx, group in enumerate(groups):
+        filename = os.path.join(output_dir, f"group_{idx + 1}.{file_format}")  # Asegura que el archivo se guarda en la misma carpeta
+        
+        if file_format == "csv":
+            with open(filename, 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(["Number of Blocks in Group:", len(group)])  # Add block count
+                
+                for block in group:
+                    writer.writerow([])  # Add empty line for readability
+                    writer.writerow(block.columns)
+                    for _, row in block.iterrows():
+                        writer.writerow(row.values)
+        
+        elif file_format == "xlsx":
+            with pd.ExcelWriter(filename) as writer:
+                for b_idx, block in enumerate(group):
+                    sheet_name = f"Block_{b_idx+1}"
+                    block.to_excel(writer, sheet_name=sheet_name, index=False)
+                writer.sheets['Sheet1'].cell(row=1, column=1, value=f"Number of Blocks in Group: {len(group)}")
+        
+        file_count += 1
+    
+    return file_count
+
+def browse_file():
+    global gfffile
+    gfffile = fd.askopenfilename(filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+    entry.delete(0, 'end')
+    entry.insert(0, gfffile)
+    return gfffile
+
+def start_analysis():
+    global gfffile
+    min_similar_genes = int(entry_min_genes.get())
+    file_format = file_format_var.get()
+    
+    try:
+        df = pd.read_csv(gfffile)
+        blocks = identify_blocks(df)
+        
+        # Nombre del archivo de advertencias
+        warning_file = os.path.join(os.path.dirname(gfffile), "Other matches.csv")
+        
+        groups = compare_blocks(blocks, min_similar_genes, warning_file)
+        
+        # Obtener el directorio de salida (misma carpeta que el archivo de entrada)
+        output_dir = os.path.dirname(gfffile)  # Guardar archivos en el mismo directorio que el archivo de entrada
+        print(f"Output directory: {output_dir}")  # Verifica la ruta
+
+        file_count = create_output_files(groups, file_format, output_dir)
+        
+        messagebox.showinfo("Analysis Completed", f"Analysis finished. {file_count} files created. Warnings saved to {warning_file}")
+    except FileNotFoundError:
+        messagebox.showerror("Error", "File not found.")
+
+# def create_similarity_graph(blocks, min_similar_genes):
+#     """
+#     Creates a graph where nodes represent species and edges represent similarity based on matching genes.
+#     The thickness of edges depends on the number of matches, and the distance between nodes depends on similarity.
+#     """
+#     G = nx.Graph()  # Create an undirected graph
+#     warnings = []  # List to store warnings if needed
+    
+#     for i, block1 in enumerate(blocks):
+#         species1 = block1.iloc[0, 0]  # Get species name from the first column
+#         G.add_node(species1)  # Add the node for this species
+        
+#         for j, block2 in enumerate(blocks):
+#             if i >= j:  # To avoid duplicate comparisons
+#                 continue
+            
+#             species2 = block2.iloc[0, 0]
+#             common_descriptions = set(block1['Description'].unique()) & set(block2['Description'].unique())
+#             num_common = len(common_descriptions)
+            
+#             if num_common >= min_similar_genes:
+#                 # Add an edge between the nodes with the weight being the number of common descriptions
+#                 G.add_edge(species1, species2, weight=num_common)
+#             elif num_common > 0:
+#                 warnings.append([
+#                     f"Bloque {i+1}",
+#                     species1,
+#                     num_common,
+#                     ", ".join(common_descriptions),
+#                     species2
+#                 ])
+    
+#     return G, warnings
+
+# def plot_similarity_graph(G):
+#     """
+#     Plots the similarity graph using NetworkX and Matplotlib.
+#     """
+#     # Usar un layout que no agrupe demasiado los nodos
+#     pos = nx.spring_layout(G, k=0.5, seed=42)  # Ajusta 'k' para más separación
+    
+#     # Ajuste de grosor de las líneas
+#     edge_widths = [d['weight'] * 0.5 for u, v, d in G.edges(data=True)]
+    
+#     # Crear la figura
+#     plt.figure(figsize=(14, 14))  # Aumentar el tamaño para mejor visibilidad
+    
+#     # Dibuja el gráfico con una paleta de colores ajustada
+#     nx.draw(G, pos, with_labels=True, node_size=1000, node_color='skyblue', font_size=10,
+#             font_weight='bold', width=edge_widths, edge_color=edge_widths, cmap=plt.cm.Blues)
+    
+#     plt.title("Gene Block Similarity Map", fontsize=16)
+#     plt.show()
+
+def ortho_finder_app():
+    root = tk.Tk()
+    root.title("Gene Block Comparator")
+
+    label = tk.Label(root, text="Select the CSV file:")
+    label.pack()
+    global entry
+    entry = tk.Entry(root, width=50)
+    entry.pack()
+    button = tk.Button(root, text="Select CSV File", command=browse_file)
+    button.pack()
+
+    label_min_genes = tk.Label(root, text="Minimum number of gene matches:")
+    label_min_genes.pack()
+    global entry_min_genes
+    entry_min_genes = tk.Entry(root, width=10)
+    entry_min_genes.pack()
+
+    label_format = tk.Label(root, text="Select output format:")
+    label_format.pack()
+    global file_format_var
+    file_format_var = tk.StringVar(value="csv")
+    csv_button = tk.Radiobutton(root, text="CSV", variable=file_format_var, value="csv")
+    csv_button.pack()
+    xlsx_button = tk.Radiobutton(root, text="XLSX", variable=file_format_var, value="xlsx")
+    xlsx_button.pack()
+
+    button_start = tk.Button(root, text="Start Analysis", command=start_analysis)
+    button_start.pack()
+
 def show_help():
     messagebox.showinfo("Help", "This kit includes:\n"
                                  "1. Split FASTA file: This function takes any FASTA file provided and turns it into several files with a limit of 99 sequences in each file. Each file is numbered to keep track.\n"
-                                 "2. Header resumer: This function grabs any FASTA file containing the species between brackets, like NCBI Database usually allows to download files, (e.g., XP_0000123.1 [organism=Ananas comosus]). The function then takes the first letter of the first word (A) and five from the second word (coreu) to build a new short name (Acoreu). It keeps track of repeated species by adding numbers after the first one (e.g., Acomos, Acomos2, Acomos3, etc.). It also returns a CSV file containing the original headers along with the new ones, so the user can decide to replace them again in the future if they want to.\n"
-                                 "3. ProtParam calculator: This function takes the FASTA file and returns several parameters of interest from each sequence, as if bulk querying protparam Expasy tools. The output is a CSV file, which can be easily imported into Excel.\n"
+                                 "2. Header resumer: This function grabs any FASTA file containing the species between brackets, like NCBI Database usually allows to download files, (e.g., XP_0000123.1 [organism=Ananas comosus]). The function then takes the first letter of the first word (A) and five from the second word (comos) to build a new short name (Acomos). It keeps track of repeated species by adding numbers after the first one (e.g., Acomos, Acomos2, Acomos3, etc.). It also returns a CSV file containing the original headers along with the new ones, so the user can decide to replace them again in the future if they want to.\n"
+                                 "3. ProtParam calculator: This function takes the protein FASTA file and returns several parameters of interest from each sequence, as if bulk querying protparam Expasy tools. The output is a CSV file, which can be easily imported into Excel.\n"
                                  "Note: This program IGNORES 'X' characters in all sequences to perform calculations without errors.\n"
-                                 "4. FoldIndex calculator: Queries proteopedia's fold tool and retrieves the fold index of the protein sequence.\n"
+                                 "4. FoldIndex calculator: Queries proteopedia's FOldIndex tool and retrieves the fold index of the protein sequence. Note: This step is slow, as it queries proteins one-by-one\n"
                                  "5. TaxaSage: Using the organism name taken from your selected fasta file (must include '[organism=' tag), uses NCBIs API Entrez services to gather Order, Class and Family and returns a .csv file for further use. \n"
                                  "6. Microsintenic retriever: Selecting a NCBI Database gene fasta file, it parses the data, collects gff3 data from NCBI servers and presents all coding genes surrounding the gene of interest both upstream and downstream in a readable CSV for the user. The distance is set to 30 kbp upstream from the gene start position, and downstream from the end position. If few genes are detected, program automatically extends this by 10 kbps."
                                  "\n"
-                                 "BioPal v0.3.\n"
+                                 "BioPal v0.5.\n"
                                  "Disclaimer: This program is provided 'as is' without any guarantees or warranty. In connection with the program, I make no warranties of any kind, either express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, of title, or of noninfringement of third party rights. Use of the program is at your own risk, and I am not responsible for any misuse or the results produced by it. The program is subject to change at any moment without warning, and different versions of the program might produce slightly different results. Some scripts require an active internet connection to function correctly.")
 
 def exit_func():
@@ -463,19 +709,20 @@ def exit_func():
 def main():
     global root
     root = tk.Tk()
-    root.title("BioPal v0.3")
+    root.title("BioPal v0.5")
 
     frame = tk.Frame(root)
-    frame.pack(padx=10, pady=10)
+    frame.pack(padx=5, pady=5)
 
     buttons = [
         ("Select Input File", input_selector),
-        ("Split FASTA File (Nuc/Prot)", split_fasta_file),
-        ("Header Resumer (Nuc/Prot)", header_resumer),
-        ("ProtParam Calculator (Prot)", protparam_calculator),
-        ("Fold Index Calculator (Prot)", fold_index_calculator),
-        ("Taxa Sage (Nuc/prot)", phylogenetic_data_retrieval),
-        ("Microsyntenic retriever (Nuc)", microsintenic_analyzer),
+        ("Split FASTA File", split_fasta_file),
+        ("Header Resumer", header_resumer),
+        ("ProtParam Calculator", protparam_calculator),
+        ("Fold Index Calculator", fold_index_calculator),
+        ("Taxa Sage", phylogenetic_data_retrieval),
+        ("Microsyntenic retriever (MR) (Nuc)", microsintenic_analyzer),
+        ("Ortho Finder (MR output)", ortho_finder_app),
         ("Help", show_help),
         ("Exit", exit_func)
     ]
